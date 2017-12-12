@@ -7,6 +7,41 @@ import (
 	"time"
 )
 
+// ActivateFlags is an enumeration type for flags that may be passed to the
+// ActivateWithFlags function to change the behaviour of libcryptsetup while
+// attempting to activate a device.
+type ActivateFlags uint32
+
+const (
+	// ActivateReadOnly denotes that the device is read only.
+	ActivateReadOnly ActivateFlags = C.CRYPT_ACTIVATE_READONLY
+	// ActivateNoUUID denotes that the device has no UUID.
+	ActivateNoUUID ActivateFlags = C.CRYPT_ACTIVATE_NO_UUID
+	// ActivateShared specifies that the device will be activated even if
+	// exclusive access cannot be granted (DANGEROUS).
+	ActivateShared ActivateFlags = C.CRYPT_ACTIVATE_SHARED
+	// ActivateAllowDiscards enables discards (aka TRIM).
+	ActivateAllowDiscards ActivateFlags = C.CRYPT_ACTIVATE_ALLOW_DISCARDS
+	// ActivatePrivate skips global udev rules in activation ("private device").
+	// Input only.
+	ActivatePrivate ActivateFlags = C.CRYPT_ACTIVATE_PRIVATE
+	// ActivateCorrupted is reported when corruption was detected by verity.
+	// Output only.
+	ActivateCorrupted ActivateFlags = C.CRYPT_ACTIVATE_CORRUPTED
+	// ActivateSameCPUCrypt uses the same_cpu_crypt option for dm-crypt.
+	ActivateSameCPUCrypt ActivateFlags = C.CRYPT_ACTIVATE_SAME_CPU_CRYPT
+	// ActivateSubmitFromCryptCPUs uses the submit_from_crypt_cpus option for dm-crypt.
+	ActivateSubmitFromCryptCPUs ActivateFlags = C.CRYPT_ACTIVATE_SUBMIT_FROM_CRYPT_CPUS
+	// ActivateIgnoreCorruption specifies the ignore_corruption flag for dm-verity.
+	// This causes corruption to be ignored and only logged.
+	ActivateIgnoreCorruption ActivateFlags = C.CRYPT_ACTIVATE_IGNORE_CORRUPTION
+	// ActivateRestartOnCorruption specifies the restart_on_corruption flag for dm-verity.
+	ActivateRestartOnCorruption ActivateFlags = C.CRYPT_ACTIVATE_RESTART_ON_CORRUPTION
+	// ActivateIgnoreZeroBlocks specifies the ignore_zero_blocks flag for dm-verity.
+	// Zero blocks are not verified.
+	ActivateIgnoreZeroBlocks ActivateFlags = C.CRYPT_ACTIVATE_IGNORE_ZERO_BLOCKS
+)
+
 // Device is a handle on the crypto device. It corresponds to a
 // `struct crypt_device*` in libcryptsetup
 type Device struct {
@@ -16,6 +51,7 @@ type Device struct {
 // synchronize the first time secure memory is allocated, otherwise
 // libgcrypt's secure memory pool may be inititialized multiple times
 var firstInitStatus = make(chan int, 1)
+
 func init() {
 	firstInitStatus <- 0
 }
@@ -57,8 +93,8 @@ func (d *Device) Format(key []byte, p CryptParameter) error {
 		t,
 		pp.Cipher,
 		pp.Mode,
-		nil,		  // generate the uuid
-		nil,		  // generate the volume key
+		nil,              // generate the uuid
+		nil,              // generate the volume key
 		pp.VolumeKeySize, // 256bit volume key
 		params,
 	)
@@ -67,9 +103,9 @@ func (d *Device) Format(key []byte, p CryptParameter) error {
 	}
 	_, err = d.keyslotAddByPassphrase(
 		C.CRYPT_ANY_SLOT, // use the first available key slot
-		nil,		  // use the saved volume key from
-				  // formatting
-		key,		  // the key we were passed
+		nil,              // use the saved volume key from
+		// formatting
+		key, // the key we were passed
 	)
 	return err
 }
@@ -125,6 +161,18 @@ func (d *Device) Activate(name string, pass []byte) error {
 	return err
 }
 
+// ActivateWithFlags does the same thing as Activate, but allows the caller to
+// specify the flags to be passed to `crypt_activate_by_passphrase`.
+func (d *Device) ActivateWithFlags(name string, pass []byte, flags ActivateFlags) error {
+	_, err := d.activateByPassphrase(
+		&name,
+		C.CRYPT_ANY_SLOT,
+		pass,
+		uint32(flags),
+	)
+	return err
+}
+
 // Deactivate removes the active device-mapper mapping from the
 // kernel. This also removes sensitive data from memory.
 func (d *Device) Deactivate(name string) error {
@@ -159,7 +207,7 @@ func (d *Device) Params() (pp Params) {
 // SetIterationTime sets how log it should take to construct a key
 // from a password. The default is about 1 second.
 func (d *Device) SetIterationTime(t time.Duration) {
-	C.crypt_set_iteration_time(d.cd, C.uint64_t(t.Seconds() * 1000))
+	C.crypt_set_iteration_time(d.cd, C.uint64_t(t.Seconds()*1000))
 }
 
 // SetDataDevice specifies a device to use in detached header mode.
