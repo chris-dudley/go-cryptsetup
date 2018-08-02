@@ -125,6 +125,39 @@ int gocrypt_crypt_benchmark(struct gocrypt_logstack **ls, struct crypt_device *c
   return out;
 }
 
+// Since libcrtyptsetup.h doesn't include version number information as defines,
+// we use the existance of defines added in libcryptsetup 2.0 to determine if
+// we're compiling under the new version.
+#ifdef CRYPT_KDF_PBKDF2
+// crypt_benchmark_kdf was replaced by crypt_benchmark_pbkdf in libcryptsetup 2.0,
+// so we try to emulate the old behavior with the new function.
+int gocrypt_crypt_benchmark_kdf(struct gocrypt_logstack **ls, struct crypt_device *cd, const char * kdf, const char * hash, void * password, size_t password_size, void * salt, size_t salt_size, uint64_t * iterations_sec) {
+  int out;
+  struct crypt_pbkdf_type kdf_type;
+  kdf_type.type = kdf;
+  kdf_type.hash = hash;
+  kdf_type.time_ms = 1000; // want iterations per second
+
+  size_t volume_key_size;
+
+  if (cd) {
+    crypt_set_log_callback(cd, gocrypt_log, ls);
+    volume_key_size = crypt_get_volume_key_size(cd);
+  }
+  if (volume_key_size == 0) {
+    // default key size is 256 bits (DEFAULT_LUKS1_KEYBITS)
+    volume_key_size = 256 / 8;
+  }
+
+  out = crypt_benchmark_pbkdf(cd, &kdf_type, password, password_size, salt, salt_size, volume_key_size, NULL, NULL);
+  if (cd)
+    crypt_set_log_callback(cd, gocrypt_log_default, NULL);
+  if (iterations_sec != NULL)
+    *iterations_sec = kdf_type.iterations; // copy iteration count into out parameter
+  return out;
+}
+#else
+// libcryptsetup 1.x implementation
 int gocrypt_crypt_benchmark_kdf(struct gocrypt_logstack **ls, struct crypt_device *cd, const char * kdf, const char * hash, void * password, size_t password_size, void * salt, size_t salt_size, uint64_t * iterations_sec) {
   int out;
   if (cd)
@@ -134,4 +167,4 @@ int gocrypt_crypt_benchmark_kdf(struct gocrypt_logstack **ls, struct crypt_devic
     crypt_set_log_callback(cd, gocrypt_log_default, NULL);
   return out;
 }
-
+#endif
