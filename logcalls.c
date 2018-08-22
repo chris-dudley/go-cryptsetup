@@ -4,6 +4,15 @@
 #include "log.h"
 #include <libcryptsetup.h>
 
+// Since libcrtyptsetup.h doesn't include version number information as defines,
+// we use the existance of defines added in libcryptsetup 2.0 to determine if
+// we're compiling under the new version.
+#ifdef CRYPT_KDF_PBKDF2
+#define LIBCRTYPSETUP_VERSION 020000L
+#else
+#define LIBCRYPTSETUP_VERSION 010600L
+#endif
+
 
 int gocrypt_crypt_init(struct gocrypt_logstack **ls, struct crypt_device **cd, const char * name) {
   int out;
@@ -75,6 +84,16 @@ int gocrypt_crypt_keyslot_add_by_passphrase(struct gocrypt_logstack **ls, struct
   return out;
 }
 
+int gocrypt_crypt_keyslot_add_by_volume_key(struct gocrypt_logstack **ls, struct crypt_device *cd, int keyslot, void * volume_key, size_t volume_key_size, void * new_passphrase, size_t new_passphrase_size) {
+  int out;
+  if (cd)
+    crypt_set_log_callback(cd, gocrypt_log, ls);
+  out = crypt_keyslot_add_by_volume_key(cd, keyslot, volume_key, volume_key_size, new_passphrase, new_passphrase_size);
+  if (cd)
+    crypt_set_log_callback(cd, gocrypt_log_default, NULL);
+  return out;
+}
+
 int gocrypt_crypt_keyslot_destroy(struct gocrypt_logstack **ls, struct crypt_device *cd, int keyslot) {
   int out;
   if (cd)
@@ -128,7 +147,7 @@ int gocrypt_crypt_benchmark(struct gocrypt_logstack **ls, struct crypt_device *c
 // Since libcrtyptsetup.h doesn't include version number information as defines,
 // we use the existance of defines added in libcryptsetup 2.0 to determine if
 // we're compiling under the new version.
-#ifdef CRYPT_KDF_PBKDF2
+#if LIBCRTYPSETUP_VERSION >= 020000L
 // crypt_benchmark_kdf was replaced by crypt_benchmark_pbkdf in libcryptsetup 2.0,
 // so we try to emulate the old behavior with the new function.
 int gocrypt_crypt_benchmark_kdf(struct gocrypt_logstack **ls, struct crypt_device *cd, const char * kdf, const char * hash, void * password, size_t password_size, void * salt, size_t salt_size, uint64_t * iterations_sec) {

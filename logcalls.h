@@ -19,6 +19,8 @@ int gocrypt_crypt_set_uuid(struct gocrypt_logstack **, struct crypt_device *, co
 
 int gocrypt_crypt_set_data_device(struct gocrypt_logstack **, struct crypt_device *, const char *);
 
+int gocrypt_crypt_keyslot_add_by_volume_key(struct gocrypt_logstack **, struct crypt_device *, int, void *, size_t, void *, size_t);
+
 int gocrypt_crypt_keyslot_add_by_passphrase(struct gocrypt_logstack **, struct crypt_device *, int, void *, size_t, void *, size_t);
 
 int gocrypt_crypt_keyslot_destroy(struct gocrypt_logstack **, struct crypt_device *, int);

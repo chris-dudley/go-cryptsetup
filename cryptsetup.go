@@ -4,6 +4,7 @@ package cryptsetup
 // #include <libcryptsetup.h>
 import "C"
 import (
+	"fmt"
 	"time"
 )
 
@@ -99,15 +100,18 @@ func (d *Device) Format(key []byte, p CryptParameter) error {
 		params,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("format failed: %s", err)
 	}
-	_, err = d.keyslotAddByPassphrase(
+	_, err = d.keyslotAddByVolumeKey(
 		C.CRYPT_ANY_SLOT, // use the first available key slot
 		nil,              // use the saved volume key from
 		// formatting
 		key, // the key we were passed
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("keyslotAddByVolumeKey failed: %s", err)
+	}
+	return nil
 }
 
 // Benchmark runs the library's internal benchmarking code on the

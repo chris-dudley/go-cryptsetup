@@ -62,13 +62,13 @@ func TestDevice_Format(t *testing.T) {
 
 			d, f, err := makeDevice()
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("failed to initialize device: %s", err)
 			}
 			defer freeme(d, f)
 
 			err = d.Format([]byte(pass), LuksParams{})
 			if err != nil {
-				t.Fatal(err)
+				t.Fatalf("format failed: %s", err)
 			}
 		})
 	}
